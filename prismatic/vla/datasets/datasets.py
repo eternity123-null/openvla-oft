@@ -113,7 +113,7 @@ class RLDSDataset(IterableDataset):
             mixture_spec = [(self.data_mix, 1.0)]
 
         # fmt: off
-        if "aloha" in self.data_mix:
+        if "agibot" in self.data_mix or "aloha" in self.data_mix or "lerobot" in self.data_mix:
             load_camera_views = ("primary", "left_wrist", "right_wrist")
         else:
             load_camera_views = ("primary", "wrist")
@@ -171,9 +171,28 @@ class RLDSDataset(IterableDataset):
     def make_dataset(self, rlds_config):
         return make_interleaved_dataset(**rlds_config)
 
+    # def __iter__(self) -> Dict[str, Any]:
+    #     for rlds_batch in self.dataset.as_numpy_iterator():  # 有问题
+    #         yield self.batch_transform(rlds_batch)
+    
     def __iter__(self) -> Dict[str, Any]:
-        for rlds_batch in self.dataset.as_numpy_iterator():
-            yield self.batch_transform(rlds_batch)
+        try:
+            iterator = self.dataset.as_numpy_iterator()
+            for i, rlds_batch in enumerate(iterator):
+                yield self.batch_transform(rlds_batch)
+        except Exception as e:
+            print("[ERROR] Exception occurred in dataset.as_numpy_iterator()")
+            print(f"[ERROR] Type: {type(e).__name__}")
+            print(f"[ERROR] Message: {str(e)}")
+
+            # （可选）打印 dataset 的结构
+            try:
+                print("[DEBUG] Dataset element_spec:")
+                print(self.dataset.element_spec)
+            except Exception as es:
+                print(f"[DEBUG] Could not retrieve element_spec: {es}")
+
+            raise e
 
     def __len__(self) -> int:
         return self.dataset_length

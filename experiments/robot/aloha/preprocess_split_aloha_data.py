@@ -53,6 +53,7 @@ import h5py
 import numpy as np
 from PIL import Image
 from tqdm import tqdm
+import cv2
 
 
 def load_hdf5(demo_path):
@@ -64,16 +65,23 @@ def load_hdf5(demo_path):
     print(f"Loading {demo_path}...")
     with h5py.File(demo_path, "r") as root:
         is_sim = root.attrs["sim"]
+        compressed = root.attrs.get('compress',False)
         qpos = root["/observations/qpos"][()]
         qvel = root["/observations/qvel"][()]
-        effort = root["/observations/effort"][()]
+        # effort = root["/observations/effort"][()]
+        if "/observations/effort" in root:
+            effort = root["/observations/effort"][()]
+        else:
+            effort = np.zeros_like(qpos)  # None 或 np.zeros_like(qpos)，根据你下游需要
+            
         action = root["/action"][()]
         image_dict = dict()
         for cam_name in root["/observations/images/"].keys():
+            # print("cam_name: ",cam_name)
             image_dict[cam_name] = root[f"/observations/images/{cam_name}"][()]
     print(f"Loading episode complete: {demo_path}")
 
-    return qpos, qvel, effort, action, image_dict, is_sim
+    return qpos, qvel, effort, action, image_dict, is_sim, compressed
 
 
 def load_and_preprocess_all_episodes(demo_paths, out_dataset_dir):
@@ -81,20 +89,31 @@ def load_and_preprocess_all_episodes(demo_paths, out_dataset_dir):
     Loads and preprocesses all episodes.
     Resizes all images in one episode before loading the next, to reduce memory usage.
     """
-    cam_names = ["cam_high", "cam_left_wrist", "cam_right_wrist"]
+    # cam_names = ["cam_high", "cam_left_wrist","cam_low", "cam_right_wrist"]
     idx = 0
     for demo in tqdm(demo_paths):
-        qpos, qvel, effort, action, image_dict, is_sim = load_hdf5(demo)
+        qpos, qvel, effort, action, image_dict, is_sim, compressed = load_hdf5(demo)
         # Save non-image info
         episode_len = image_dict["cam_high"].shape[0]
+        img_shape = image_dict["cam_high"].shape
+        cam_names = image_dict.keys()
+        print("camera_names:",cam_names)
+        print("episode_len:",episode_len," img_shape:",img_shape, " compressed:", compressed)
         # Resize all images
         print("Resizing images in episode...")
         for k in cam_names:
             resized_images = []
-            for i in range(episode_len):
+            for frame_id, compressed_image in enumerate(image_dict[k]):
+                if compressed:
+                    image = cv2.imdecode(np.frombuffer(compressed_image, np.uint8), cv2.IMREAD_COLOR)
+                    if image is None:
+                        print(f"[Warning] Failed to decode image at frame {frame_id} from camera {k} in {demo}, using blank image.")
+                        image = np.zeros((args.img_resize_size, args.img_resize_size, 3), dtype=np.uint8)
+                else:
+                    image = compressed_image
                 resized_images.append(
                     np.array(
-                        Image.fromarray(image_dict[k][i]).resize(
+                        Image.fromarray(image).resize(
                             (args.img_resize_size, args.img_resize_size), resample=Image.BICUBIC
                         )
                     )  # BICUBIC is default; specify explicitly to make it clear
@@ -114,57 +133,11 @@ def load_and_preprocess_all_episodes(demo_paths, out_dataset_dir):
         idx += 1
 
 
-def randomly_split(full_qpos, full_qvel, full_effort, full_action, full_image_dict, percent_val):
-    """Randomly splits dataset into train and validation sets."""
-    # Create a list of episode indices
-    num_episodes_total = len(full_qpos)
-    indices = list(range(num_episodes_total))
-    # Shuffle the episode indices
-    random.shuffle(indices)
-    # Create new lists using the shuffled indices
-    shuffled_qpos = [full_qpos[idx] for idx in indices]
-    shuffled_qvel = [full_qvel[idx] for idx in indices]
-    shuffled_effort = [full_effort[idx] for idx in indices]
-    shuffled_action = [full_action[idx] for idx in indices]
-    shuffled_image_dict = {
-        "cam_high": [],
-        "cam_left_wrist": [],
-        "cam_right_wrist": [],
-    }
-    for k in full_image_dict.keys():
-        shuffled_image_dict[k] = [full_image_dict[k][idx] for idx in indices]
-    # Split into train and val sets
-    num_episodes_val = int(num_episodes_total * percent_val)
-    print(f"Total # steps: {num_episodes_total}; using {num_episodes_val} ({percent_val:.2f}%) for val set")
-    num_episodes_train = num_episodes_total - num_episodes_val
-    train_dict = dict(
-        qpos=shuffled_qpos[:num_episodes_train],
-        qvel=shuffled_qvel[:num_episodes_train],
-        effort=shuffled_effort[:num_episodes_train],
-        action=shuffled_action[:num_episodes_train],
-        image_dict=dict(
-            cam_high=shuffled_image_dict["cam_high"][:num_episodes_train],
-            cam_left_wrist=shuffled_image_dict["cam_left_wrist"][:num_episodes_train],
-            cam_right_wrist=shuffled_image_dict["cam_right_wrist"][:num_episodes_train],
-        ),
-    )
-    val_dict = dict(
-        qpos=shuffled_qpos[num_episodes_train:],
-        qvel=shuffled_qvel[num_episodes_train:],
-        effort=shuffled_effort[num_episodes_train:],
-        action=shuffled_action[num_episodes_train:],
-        image_dict=dict(
-            cam_high=shuffled_image_dict["cam_high"][num_episodes_train:],
-            cam_left_wrist=shuffled_image_dict["cam_left_wrist"][num_episodes_train:],
-            cam_right_wrist=shuffled_image_dict["cam_right_wrist"][num_episodes_train:],
-        ),
-    )
-    return train_dict, val_dict
-
 
 def save_new_hdf5(out_dataset_dir, data_dict, episode_idx):
     """Saves an HDF5 file for a new episode."""
     camera_names = data_dict["image_dict"].keys()
+    print("image shape:", data_dict["image_dict"]["cam_high"][0].shape)
     H, W, C = data_dict["image_dict"]["cam_high"][0].shape
     out_path = os.path.join(out_dataset_dir, f"episode_{episode_idx}.hdf5")
     # Save HDF5 with same structure as original demos (except that now we combine all episodes into one HDF5 file)

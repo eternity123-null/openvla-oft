@@ -29,8 +29,8 @@ def make_oxe_dataset_kwargs(
 ) -> Dict[str, Any]:
     """Generates config (kwargs) for given dataset from Open-X Embodiment."""
     dataset_kwargs = deepcopy(OXE_DATASET_CONFIGS[dataset_name])
-    if dataset_kwargs["action_encoding"] not in [ActionEncoding.EEF_POS, ActionEncoding.EEF_R6, ActionEncoding.JOINT_POS_BIMANUAL]:
-        raise ValueError(f"Cannot load `{dataset_name}`; only EEF_POS & EEF_R6 & JOINT_POS_BIMANUAL actions supported!")
+    if dataset_kwargs["action_encoding"] not in [ActionEncoding.EEF_POS, ActionEncoding.EEF_R6, ActionEncoding.JOINT_POS_BIMANUAL, ActionEncoding.AGI_BIMANUAL]:
+        raise ValueError(f"Cannot load `{dataset_name}`; only EEF_POS & EEF_R6 & JOINT_POS_BIMANUAL & AGI_BIMANUAL actions supported!")
 
     # [Contract] For EEF_POS & EEF_R6 actions, only the last action dimension (gripper) is absolute!
     # Normalize all action dimensions *except* the gripper
@@ -43,9 +43,14 @@ def make_oxe_dataset_kwargs(
     elif dataset_kwargs["action_encoding"] is ActionEncoding.JOINT_POS_BIMANUAL:
         dataset_kwargs["absolute_action_mask"] = [True] * 14
         dataset_kwargs["action_normalization_mask"] = [True] * 14
+    elif dataset_kwargs["action_encoding"] is ActionEncoding.AGI_BIMANUAL:
+        dataset_kwargs["absolute_action_mask"] = [True] * 20
+        dataset_kwargs["action_normalization_mask"] = [True] * 20
     dataset_kwargs["action_proprio_normalization_type"] = action_proprio_normalization_type
 
     # Adjust Loaded Camera Views
+    print("load_camera_views:",load_camera_views)
+    print("image_obs_keys:",dataset_kwargs["image_obs_keys"])
     if len(missing_keys := (set(load_camera_views) - set(dataset_kwargs["image_obs_keys"]))) > 0:
         raise ValueError(f"Cannot load `{dataset_name}`; missing camera views `{missing_keys}`")
 
