@@ -935,4 +935,6 @@ OXE_STANDARDIZATION_TRANSFORMS = {
     "agibot_scoop": aloha_dataset_transform,
     "agibot_push": aloha_dataset_transform,
     "agibot_pull": aloha_dataset_transform,
+    "agibot_pour": aloha_dataset_transform,
+    "agibot_pour_ice": aloha_dataset_transform,
 }

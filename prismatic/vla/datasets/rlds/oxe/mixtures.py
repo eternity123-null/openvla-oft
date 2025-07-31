@@ -241,5 +241,11 @@ OXE_NAMED_MIXTURES: Dict[str, List[Tuple[str, float]]] = {
     "agibot_pull": [
         ("agibot_pull", 1.0),
     ],
+    "agibot_pour": [
+        ("agibot_pour", 1.0),
+    ],
+    "agibot_pour_ice": [
+        ("agibot_pour_ice", 1.0),
+    ],
 # fmt: on
 }
