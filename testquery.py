@@ -88,7 +88,7 @@ def main_loop():
     不停地获取用户指令，调用VLA服务器，并显示结果。
     """
     # !!!重要!!! 请将此URL替换为您实际的VLA服务器地址
-    VLA_SERVER_URL = "http://127.0.0.1:5000/get_action"
+    VLA_SERVER_URL = "http://0.0.0.0:8777/act"
     
     client = VLAClient(vla_server_url=VLA_SERVER_URL)
 
@@ -96,48 +96,33 @@ def main_loop():
     instruction = "pour the ice in the right hand into the cup"
 
     while True:
-        try:
+    
+        
+        observation = client.get_fake_observation(instruction)
+
+        # 3. 从VLA服务器获取动作
+        action_response = client.get_action_from_server(observation)
+
+        # 4. 处理并显示结果
+        if not action_response:
+            print("未能从服务器获取到有效响应。")
+            continue
             
-            observation = client.get_fake_observation(instruction)
-            # print("生成的观测数据 (部分):")
-            # print(f"  - 指令: {observation['instruction']}")
-            # print(f"  - 状态向量 (前5个元素): {observation['state'][:5]}")
-
-            # 3. 从VLA服务器获取动作
-            action_response = client.get_action_from_server(observation)
-
-            # 4. 处理并显示结果
-            if not action_response:
-                print("未能从服务器获取到有效响应。")
-                continue
-                
-            print("\n--- 服务器响应 ---")
-            print(f"原始响应内容: {action_response}")
-            
-            # 假设服务器返回的动作在 'predicted_action' 键中
-            if 'predicted_action' in action_response:
-                try:
-                    predicted_action_encoded = action_response['predicted_action']
-                    # 解码numpy数组
-                    action_decoded = client.decode_numpy(predicted_action_encoded)
-                    print("\n--- 解码后的动作 ---")
-                    print(f"类型: {type(action_decoded)}")
-                    print(f"形状: {action_decoded.shape}")
-                    print(f"内容 (numpy.ndarray):\n{action_decoded}")
-                except (ValueError, TypeError, KeyError) as e:
-                    print(f"\n解码动作失败: {e}")
-            else:
-                print("\n服务器响应中未找到 'predicted_action' 键。")
-
-            # 增加一个小的延时，避免循环过快
-            time.sleep(1)
-
-        except KeyboardInterrupt:
-            print("\n检测到用户中断 (Ctrl+C)，正在退出...")
-            break
-        except Exception as e:
-            print(f"\n主循环发生未知错误: {e}")
-            time.sleep(2)
+        # print("\n--- 服务器响应 ---")
+        # print(f"原始响应内容: {action_response}")
+        # print(type(action_response))
+        # 假设服务器返回的动作在 'predicted_action' 键中
+        action_decoded = []
+        for res in action_response:
+            # decode_act = client.decode_numpy(res)
+            # print("decode act: ",decode_act)
+            action_decoded.append(client.decode_numpy(res))
+        action_decoded = np.array(action_decoded, dtype=np.float32)
+        print("\n--- 解码后的动作 ---")
+        print(f"类型: {type(action_decoded)}")
+        print(f"形状: {action_decoded.shape}")
+        # print(f"内容 (numpy.ndarray):\n{action_decoded}")
+        # time.sleep(0.1)
 
 
 if __name__ == "__main__":

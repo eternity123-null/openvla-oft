@@ -17,7 +17,8 @@ import torch
 from huggingface_hub import HfApi, hf_hub_download
 from PIL import Image
 from transformers import AutoConfig, AutoImageProcessor, AutoModelForVision2Seq, AutoProcessor
-
+import base64
+import cv2
 # Apply JSON numpy patch for serialization
 json_numpy.patch()
 
@@ -711,6 +712,18 @@ def prepare_images_for_vla(images: List[np.ndarray], cfg: Any) -> List[Image.Ima
 
     return processed_images
 
+def b642img(base64_string: str) -> np.ndarray:
+    """将base64编码的字符串解码为图像(numpy.ndarray)"""
+    # 1. Base64解码
+    img_bytes = base64.b64decode(base64_string)
+
+    # 2. 将字节流转换为NumPy数组
+    # frombuffer() 从字节流创建一维数组
+    # imdecode() 从内存缓冲区解码图像
+    img_array = np.frombuffer(img_bytes, np.uint8)
+    img = cv2.imdecode(img_array, cv2.IMREAD_COLOR) # Use IMREAD_COLOR for a 3-channel image
+
+    return img
 
 def get_vla_action(
     cfg: Any,
@@ -741,7 +754,9 @@ def get_vla_action(
         List[np.ndarray]: Predicted actions
     """
     with torch.inference_mode():
-
+        # print("Raw receive: ", obs["full_image"])
+        for key in ["full_image", "left_wrist_image", "right_wrist_image"]:
+            obs[key] = b642img(obs[key])
         # Collect all input images
         all_images = [obs["full_image"]]
         if cfg.num_images_in_input > 1:

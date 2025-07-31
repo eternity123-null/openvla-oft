@@ -118,7 +118,7 @@ torchrun --standalone --nnodes 1 --nproc-per-node 8 vla-scripts/finetune_modi.py
 
 # agibot
 CUDA_VISIBLE_DEVICES=0 torchrun --standalone --nnodes 1 --nproc-per-node 1 vla-scripts/finetune_modi.py \
-  --vla_path /inspire/hdd/project/robot-decision/cengchendong-CZXS25230112/openvla-oft/checkpoints/openvla-7b \
+  --vla_path checkpoints/openvla-7b \
   --data_root_dir /inspire/hdd/project/robot-decision/public/Unidomain/datasets/tmprlds/ \
   --dataset_name agibot_pull \
   --run_root_dir /inspire/hdd/project/robot-decision/cengchendong-CZXS25230112/openvla-oft/experiments/finetune/agibot_pull0729/ \
@@ -173,3 +173,40 @@ torchrun --standalone --nnodes 1 --nproc-per-node 8 vla-scripts/finetune_modi.py
 python vla-scripts/merge_lora_weights_and_save.py \
         --base_checkpoint ./checkpoints/openvla-7b \
         --lora_finetuned_checkpoint_dir /inspire/hdd/project/robot-decision/cengchendong-CZXS25230112/openvla-oft/experiments/finetune/agibot_pour0729/openvla-7b+agibot_pour+b8+lr-0.0005+lora-r32+dropout-0.0--image_aug--parallel_dec--25_acts_chunk--continuous_acts--L1_regression--left_right_wrist_imgs--proprio_state--film--100000_chkpt
+
+# deploy
+python vla-scripts/deploy.py \
+  --pretrained_checkpoint /inspire/hdd/project/robot-decision/cengchendong-CZXS25230112/openvla-oft/experiments/finetune/agibot_pour0729/openvla-7b+agibot_pour-80000_chkpt \
+  --use_l1_regression True \
+  --use_film True \
+  --num_images_in_input 3 \
+  --use_proprio True \
+  --center_crop True \
+  --unnorm_key agibot_pour
+
+
+# 兜底
+torchrun --standalone --nnodes 1 --nproc-per-node 8 vla-scripts/finetune_modi.py \
+  --vla_path checkpoints/openvla-7b \
+  --data_root_dir /inspire/hdd/project/robot-decision/public/Unidomain/datasets/tmprlds/ \
+  --dataset_name agibot_pour\
+  --run_root_dir /inspire/hdd/project/robot-decision/cengchendong-CZXS25230112/openvla-oft/experiments/finetune/tmp/ \
+  --use_l1_regression True \
+  --use_diffusion False \
+  --use_film True \
+  --num_images_in_input 3 \
+  --use_proprio True \
+  --batch_size 8 \
+  --learning_rate 5e-4 \
+  --num_steps_before_decay 30000 \
+  --max_steps 100008 \
+  --use_val_set True \
+  --val_freq 10000 \
+  --save_freq 50000 \
+  --save_latest_checkpoint_only False \
+  --image_aug True \
+  --lora_rank 32 \
+  --run_id_note pour_ice_from_pour80000 \
+  --resume False \
+  --resume_step 50000 \
+  --merge_lora_during_training False
