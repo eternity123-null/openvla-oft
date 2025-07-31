@@ -1,7 +1,22 @@
-CUDA_VISIBLE_DEVICES=0 MUJOCO_EGL_DEVICE_ID=0 MUJOCO_GL=egl python experiments/robot/libero/run_libero_eval.py \
-  --pretrained_checkpoint /inspire/hdd/project/embodied-intelligence/xiaoyunxiao-240108120113/zcd/openvla-oft/checkpoints/openvla-7b-oft-finetuned-libero-spatial-object-goal-10 \
+# Launch LIBERO-Spatial evals
+CUDA_VISIBLE_DEVICES=0 python experiments/robot/libero/run_libero_eval.py   \
+  --pretrained_checkpoint checkpoints/openvla-7b-oft-finetuned-libero-spatial   \
   --task_suite_name libero_spatial
 
+# Launch LIBERO-Object evals
+CUDA_VISIBLE_DEVICES=0 python experiments/robot/libero/run_libero_eval.py \
+  --pretrained_checkpoint checkpoints/openvla-7b-oft-finetuned-libero-object \
+  --task_suite_name libero_object
+
+# Launch LIBERO-Goal evals
+CUDA_VISIBLE_DEVICES=1 python experiments/robot/libero/run_libero_eval.py \
+  --pretrained_checkpoint checkpoints/openvla-7b-oft-finetuned-libero-goal \
+  --task_suite_name libero_goal
+
+# Launch LIBERO-10 (LIBERO-Long) evals
+CUDA_VISIBLE_DEVICES=1 python experiments/robot/libero/run_libero_eval.py \
+  --pretrained_checkpoint checkpoints/openvla-7b-oft-finetuned-libero-10 \
+  --task_suite_name libero_10
 
 WANDB_MODE=offline torchrun --standalone --nnodes 1 --nproc-per-node 8 vla-scripts/finetune.py \
   --vla_path /inspire/hdd/project/embodied-intelligence/xiaoyunxiao-240108120113/zcd/openvla-oft/checkpoints/openvla-7b \
